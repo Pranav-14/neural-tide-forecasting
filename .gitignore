@@ -1,0 +1,61 @@
+# ==============================================================================
+# CONFIDENTIALITY & DATA PROTECTION
+# ==============================================================================
+# Ignore all raw, benchmark, and external datasets
+data/
+*.csv
+*.tsv
+*.parquet
+*.h5
+*.hdf5
+*.zip
+*.tar.gz
+
+# Ignore submitted/graded PDFs, Word docs, and private course briefs
+docs/*.pdf
+docs/*.docx
+docs/expose/*.pdf
+report/*.pdf
+report/*.aux
+report/*.log
+report/*.out
+report/*.toc
+report/*.bbl
+report/*.blg
+report/*.synctex.gz
+report/*.fdb_latexmk
+report/*.fls
+
+# Ignore baseline prediction CSV outputs
+experiments/baseline_predictions/
+experiments/predictions/
+*.csv
+
+# Ignore large model checkpoints
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# ==============================================================================
+# PYTHON & ENVIRONMENT
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+~$*.docx
+.idea/
+.vscode/

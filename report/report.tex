@@ -1,0 +1,54 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Time Series Forecasting Project Report}
+\author{Group ID: TODO \\ Members: TODO}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+TODO: Briefly summarize the forecasting problem, your method, and your main validation result.
+\end{abstract}
+
+\section{Introduction}
+TODO: Describe the forecasting task and why it is interesting.
+
+\section{Related Work}
+TODO: Discuss relevant forecasting models and cite them, e.g., Transformers, TCNs, RNNs, state-space models, or other methods you used.
+
+\section{Method}
+TODO: Describe your model architecture, input representation, loss, training procedure, and important design choices. Include a figure if useful.
+
+\section{Experiments}
+TODO: Report validation results, compare against the naive last-value and seasonal mean baselines, and include ablations or analysis.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrr}
+\toprule
+Method & Validation Metric & Notes \\
+\midrule
+Naive last-value baseline & TODO & minimum baseline \\
+Seasonal mean baseline & TODO & stronger reference \\
+Our model & TODO & TODO \\
+\bottomrule
+\end{tabular}
+\caption{Validation results. Lower is better for all listed metrics.}
+\end{table}
+
+\section{Conclusion}
+TODO: Summarize findings, limitations, and possible future work.
+
+\section*{Contributions}
+TODO: State each group member's contribution.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
