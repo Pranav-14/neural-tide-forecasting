@@ -2,6 +2,7 @@
 **Course:** Deep Learning (SS26) — TU Darmstadt  
 **Final Due Date:** 04. September 2026, 23:59 CEST  
 **Exposé Status:** **Submitted** (Group 36, see [DLAM_Project_Group_36.pdf](file:///c:/Users/prana/OneDrive/Desktop/SoSe26/DLAM%202026/01_Allgemeines/docs/DLAM_Project_Group_36.pdf))  
+**GitHub Repository:** https://github.com/Pranav-14/neural-tide-forecasting  
 **Leaderboard:** https://aiml-tuda-dlam-ts-project-leaderboard-2026.hf.space/  
 **Dataset:** https://huggingface.co/datasets/AIML-TUDA/dlam-ts-project-data-2026
 
@@ -61,11 +62,6 @@ Ready in [`experiments/baseline_predictions/`](file:///c:/Users/prana/OneDrive/D
 
 ## Primary Architecture: TiDE (Time-series Dense Encoder) + RevIN
 
-### Why TiDE?
-- **MLP-based encoder-decoder:** Pure `torch.nn`, linear complexity in sequence length, 5–10x faster than Transformers.
-- **Native Support for Known-Future Covariates:** Maps the 9 future forecast columns directly into the decoder representation.
-- **Linear Residual Skip:** Preserves immediate historical scale and trend from the lookback window.
-
 ### Architecture Specifications:
 ```text
 Inputs:
@@ -84,74 +80,36 @@ Outputs:
   - 24-step Forecast Horizon
 ```
 
-### Planned Improvements & Additions:
-1. **RevIN (Reversible Instance Normalization):** Normalizes per-instance non-stationarity and heterogeneous unit scales.
-2. **Missing Value Imputation:** Forward-fill + column-wise fallback mean + missingness indicator flags.
-3. **Loss Function:** Huber Loss / L1 Smooth Loss for robustness against outliers and spikes.
-4. **Learning Rate Schedule:** AdamW with Cosine Annealing.
-
 ---
 
-## Additional Dataset: BATADAL (Water Distribution Network)
+## Git Workflow & Issue Tracking
 
-- **Source:** Taormina et al., 2018 (SCADA sensor readings from a water distribution network).
-- **Motivation:** Water infrastructure operational load mirrors operational unit pressure; contains **no future covariates**, demonstrating TiDE's generalization across covariate-rich and covariate-free domains.
-- **Target Variables:** Multi-target forecasting for tank water levels (meters) and flow rates (LPS).
-- **Preprocessing:** Filter labeled cyber-attack periods to retain normal operations; 80/20 train/validation split.
-
----
-
-## Current Cleaned Project Structure
+All development is tracked via GitHub Issues and Pull Requests on `main`:
 
 ```text
-01_Allgemeines/
-├── .gitignore                             # Git ignore rules for caches, checkpoints, CSVs
-├── README.md                              # Main navigation & project overview
-│
-├── docs/                                  # Project documentation & reference briefs
-│   ├── bonus_project_deep_learning_SoSe2026.pdf  # Course project brief
-│   ├── DLAM_Project_Group_36.pdf                 # Submitted Exposé PDF (Group 36)
-│   ├── PROJECT_OVERVIEW.md                       # This tracking document
-│   ├── STUDENT_INSTRUCTIONS.md                   # Instructor guidelines
-│   └── expose/                                   # Exposé LaTeX source & bibliography
-│       ├── expose.tex
-│       └── references.bib
-│
-├── data/                                  # Datasets
-│   ├── benchmark/                         # AIML-TUDA benchmark dataset CSVs & metadata
-│   └── batadal/                           # BATADAL water network CSVs
-│
-├── baselines/                             # Baseline implementations & runner
-│   ├── baselines.py                       # Naive, lag24, lag168, seasonal mean
-│   ├── run_baselines.py
-│   ├── requirements.txt
-│   └── README.md
-│
-├── src/                                   # Core PyTorch model & pipeline
-│   ├── __init__.py
-│   ├── model.py                           # TiDE Architecture & RevIN module
-│   ├── dataset.py                         # Sliding-window dataset & covariate handler
-│   ├── train.py                           # Training loop, optimizer, scheduler
-│   ├── inference.py                       # 24-step iterative rolling predictor
-│   └── utils.py                           # Evaluation metrics (WAPE, MAE, RMSE, sMAPE)
-│
-├── experiments/                           # Experiment runners, local backtests & logs
-│   ├── eda.py                             # Exploratory data analysis runner
-│   ├── eval_local_baselines.py            # Local validation baseline backtester
-│   └── baseline_predictions/              # Generated baseline prediction CSVs
-│
-├── submission/                            # Template folder for final_submission.zip
-│   ├── predict.py                         # Evaluation CLI entrypoint
-│   ├── requirements.txt
-│   ├── checkpoint.pt                      # Saved model weights
-│   └── src/                               # Model definition
-│       └── model.py
-│
-└── report/                                # Final 4–6 Page LaTeX Report
-    ├── report.tex                         # LaTeX template
-    ├── references.bib                     # Bibliography
-    └── figures/                           # Diagrams & experiment charts
+Feature Branch (e.g. feature/dataset-pipeline)
+   ↓ (develop & test)
+Commit with issue reference (e.g. "feat: implement sliding window dataset (#1)")
+   ↓
+Push feature branch to origin
+   ↓
+Open Pull Request linking to Issue #X
+   ↓
+Review, verify, and merge into main
 ```
+
+### GitHub Issues Roadmap:
+
+| Issue | Title | Status | Linked Branch |
+|---|---|---|---|
+| [#1](https://github.com/Pranav-14/neural-tide-forecasting/issues/1) | `feat: Implement sliding-window PyTorch dataset pipeline and covariate imputation` | **In Progress** | `feature/dataset-pipeline` |
+| [#2](https://github.com/Pranav-14/neural-tide-forecasting/issues/2) | `feat: Implement TiDE architecture with Reversible Instance Normalization (RevIN)` | To Do | `feature/tide-model` |
+| [#3](https://github.com/Pranav-14/neural-tide-forecasting/issues/3) | `feat: Build training pipeline with learning rate schedulers and checkpointing` | To Do | `feature/training-pipeline` |
+| [#4](https://github.com/Pranav-14/neural-tide-forecasting/issues/4) | `feat: Build 24-step iterative rolling inference engine and submission CLI` | To Do | `feature/rolling-inference` |
+| [#5](https://github.com/Pranav-14/neural-tide-forecasting/issues/5) | `experiment: Validation leaderboard submission and benchmark verification` | To Do | `feature/leaderboard-validation` |
+| [#6](https://github.com/Pranav-14/neural-tide-forecasting/issues/6) | `feat: BATADAL water distribution SCADA cross-domain pipeline and experiments` | To Do | `feature/batadal-pipeline` |
+| [#7](https://github.com/Pranav-14/neural-tide-forecasting/issues/7) | `experiment: Systematic ablation studies and neural baseline (LSTM)` | To Do | `feature/ablations` |
+| [#8](https://github.com/Pranav-14/neural-tide-forecasting/issues/8) | `docs: Author final research report (4-6 pages LaTeX) and package submission` | To Do | `feature/final-report` |
 
 ---
 
@@ -172,23 +130,23 @@ Outputs:
 - [x] Local backtest benchmark established on 336-hour validation split
 
 ### Phase 3: TiDE + RevIN Model Development (In Progress)
-- [ ] Implement `src/dataset.py` (lookback window $L=168$, horizon $H=24$, missing-value imputation)
-- [ ] Implement `src/model.py` (RevIN layer + TiDE encoder/decoder)
-- [ ] Implement `src/train.py` (training loop, AdamW, Cosine Annealing, checkpointing)
-- [ ] Implement `src/inference.py` (24-step iterative rolling rollout to 336 steps)
+- [ ] Implement `src/dataset.py` (Issue #1)
+- [ ] Implement `src/model.py` (Issue #2)
+- [ ] Implement `src/train.py` (Issue #3)
+- [ ] Implement `src/inference.py` (Issue #4)
 - [ ] Verify local validation performance vs `seasonal_mean` (Target WAPE < 0.314)
 
-### Phase 4: Leaderboard Submissions & Iteration
+### Phase 4: Leaderboard Submissions & Iteration (Issue #5)
 - [ ] Format predictions to `series_id,timestamp,prediction`
 - [ ] Submit baseline and TiDE predictions to Hugging Face leaderboard Space
 - [ ] Hyperparameter tuning (hidden dims, dropout, loss functions)
 
-### Phase 5: BATADAL Cross-Domain Pipeline
+### Phase 5: BATADAL Cross-Domain Pipeline (Issue #6)
 - [ ] Download and clean BATADAL SCADA dataset
 - [ ] Train covariate-free TiDE on BATADAL multi-target setup
 - [ ] Record generalization metrics (MAE/RMSE)
 
-### Phase 6: Ablation Studies & Final Deliverables
+### Phase 6: Ablation Studies & Final Deliverables (Issue #7 & #8)
 - [ ] Ablation 1: TiDE without covariates vs TiDE with covariates
 - [ ] Ablation 2: TiDE standard scaling vs TiDE + RevIN
 - [ ] Ablation 3: Lookback window length sensitivity ($L=72$ vs $168$ vs $336$)
