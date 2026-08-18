@@ -1,9 +1,5 @@
 # Neural-TiDE: Multivariate Long-Horizon Time-Series Forecasting
 
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
 An efficient, pure PyTorch implementation of **TiDE (Time-series Dense Encoder)** enhanced with **RevIN (Reversible Instance Normalization)** for long-horizon multivariate time-series forecasting with dynamic future covariates and static metadata.
 
 ---
