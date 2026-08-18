@@ -1,4 +1,4 @@
-"""TiDE (Time-series Dense Encoder) with RevIN in PyTorch for submission package."""
+"""TiDE (Time-series Dense Encoder) with RevIN in PyTorch."""
 
 from __future__ import annotations
 
@@ -29,6 +29,12 @@ class RevIN(nn.Module):
         self.stdev: Optional[torch.Tensor] = None
 
     def normalize(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize input tensor along the time dimension (dim=1).
+        
+        Args:
+            x: Tensor of shape (B, L) or (B, L, D).
+        """
+        # Ensure 3D shape (B, L, D) for unified processing
         is_2d = x.dim() == 2
         if is_2d:
             x = x.unsqueeze(-1)
@@ -46,6 +52,11 @@ class RevIN(nn.Module):
         return x
 
     def denormalize(self, x: torch.Tensor) -> torch.Tensor:
+        """Denormalize prediction tensor back to original data scale.
+        
+        Args:
+            x: Tensor of shape (B, H) or (B, H, D).
+        """
         if self.mean is None or self.stdev is None:
             raise RuntimeError("RevIN must call normalize before denormalize.")
 
@@ -64,6 +75,8 @@ class RevIN(nn.Module):
 
 
 class ResidualBlock(nn.Module):
+    """Dense Residual Block with LayerNorm, ReLU/GELU, and Dropout."""
+
     def __init__(self, in_features: int, out_features: int, dropout: float = 0.1):
         super().__init__()
         self.fc = nn.Sequential(
@@ -82,15 +95,20 @@ class ResidualBlock(nn.Module):
         return self.fc(x) + self.skip(x)
 
 
-class ForecastModel(nn.Module):
-    """TiDE forecasting model used in submission template."""
+class TiDE(nn.Module):
+    """Time-series Dense Encoder (TiDE) with RevIN support.
+    
+    Reference:
+      Das et al., "Long-term Forecasting with TiDE: Time-series Dense Encoder",
+      Transactions on Machine Learning Research (TMLR), 2023.
+    """
 
     def __init__(
         self,
         lookback_len: int = 168,
         horizon: int = 24,
-        past_cov_dim: int = 32,
-        future_cov_dim: int = 25,
+        past_cov_dim: int = 0,
+        future_cov_dim: int = 0,
         feature_dim: int = 16,
         hidden_dim: int = 256,
         decoder_dim: int = 128,
@@ -111,14 +129,17 @@ class ForecastModel(nn.Module):
         self.use_past_cov = use_past_covariates and (past_cov_dim > 0)
         self.use_future_cov = use_future_covariates and (future_cov_dim > 0)
 
+        # 1. Normalization
         if self.use_revin:
             self.revin = RevIN(num_features=1, affine=True)
 
+        # 2. Covariate Projections
         if self.use_past_cov:
             self.past_cov_proj = nn.Linear(past_cov_dim, feature_dim)
         if self.use_future_cov:
             self.future_cov_proj = nn.Linear(future_cov_dim, feature_dim)
 
+        # 3. Dense Encoder
         encoder_input_dim = lookback_len
         if self.use_past_cov:
             encoder_input_dim += lookback_len * feature_dim
@@ -130,12 +151,14 @@ class ForecastModel(nn.Module):
             encoder_layers.append(ResidualBlock(hidden_dim, hidden_dim, dropout=dropout))
         self.encoder = nn.Sequential(*encoder_layers)
 
+        # 4. Dense Decoder
         self.decoder_dim = decoder_dim
         decoder_layers = [ResidualBlock(hidden_dim, decoder_dim * horizon, dropout=dropout)]
         for _ in range(num_decoder_layers - 1):
             decoder_layers.append(ResidualBlock(decoder_dim * horizon, decoder_dim * horizon, dropout=dropout))
         self.decoder = nn.Sequential(*decoder_layers)
 
+        # 5. Temporal Projection (Per-step output head)
         step_input_dim = decoder_dim
         if self.use_future_cov:
             step_input_dim += feature_dim
@@ -147,6 +170,7 @@ class ForecastModel(nn.Module):
             nn.Linear(decoder_dim // 2, 1),
         )
 
+        # 6. Direct Linear Residual Skip
         self.residual_skip = nn.Linear(lookback_len, horizon)
 
     def forward(
@@ -155,38 +179,58 @@ class ForecastModel(nn.Module):
         x_past_cov: Optional[torch.Tensor] = None,
         x_future_cov: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        """Forward pass of TiDE.
+        
+        Args:
+            x_past_target: Tensor of shape (B, L)
+            x_past_cov: Optional Tensor of shape (B, L, past_cov_dim)
+            x_future_cov: Optional Tensor of shape (B, H, future_cov_dim)
+        
+        Returns:
+            y_pred: Tensor of shape (B, H)
+        """
         B = x_past_target.size(0)
 
+        # Step 1: RevIN Normalization on historical target
         if self.use_revin:
             norm_target = self.revin.normalize(x_past_target)
         else:
             norm_target = x_past_target
 
+        # Step 2: Feature Projections
         encoder_inputs = [norm_target]
 
         if self.use_past_cov and x_past_cov is not None:
-            proj_past = self.past_cov_proj(x_past_cov)
+            proj_past = self.past_cov_proj(x_past_cov)  # (B, L, feature_dim)
             encoder_inputs.append(proj_past.reshape(B, -1))
 
         if self.use_future_cov and x_future_cov is not None:
-            proj_future = self.future_cov_proj(x_future_cov)
+            proj_future = self.future_cov_proj(x_future_cov)  # (B, H, feature_dim)
+            # If past dynamic future covariates are also available in x_past_cov, project or slice
+            # Here we include future horizon projection in the encoder
             encoder_inputs.append(proj_future.reshape(B, -1))
 
+        # Step 3: Dense Encoder -> Global Embedding
         enc_in = torch.cat(encoder_inputs, dim=-1)
-        global_embed = self.encoder(enc_in)
+        global_embed = self.encoder(enc_in)  # (B, hidden_dim)
 
-        dec_out = self.decoder(global_embed)
-        dec_out = dec_out.reshape(B, self.horizon, self.decoder_dim)
+        # Step 4: Dense Decoder -> (B, H, decoder_dim)
+        dec_out = self.decoder(global_embed)  # (B, H * decoder_dim)
+        dec_out = dec_out.reshape(B, self.horizon, self.decoder_dim)  # (B, H, decoder_dim)
 
+        # Step 5: Temporal Projection Per Step
         if self.use_future_cov and x_future_cov is not None:
-            step_inputs = torch.cat([dec_out, proj_future], dim=-1)
+            step_inputs = torch.cat([dec_out, proj_future], dim=-1)  # (B, H, decoder_dim + feature_dim)
         else:
             step_inputs = dec_out
 
-        head_out = self.temporal_head(step_inputs).squeeze(-1)
-        res_out = self.residual_skip(norm_target)
+        head_out = self.temporal_head(step_inputs).squeeze(-1)  # (B, H)
+
+        # Step 6: Direct Linear Skip + Sum
+        res_out = self.residual_skip(norm_target)  # (B, H)
         y_norm_pred = head_out + res_out
 
+        # Step 7: RevIN Denormalization back to data scale
         if self.use_revin:
             y_pred = self.revin.denormalize(y_norm_pred)
         else:
