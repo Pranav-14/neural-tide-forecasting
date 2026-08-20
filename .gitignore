@@ -11,18 +11,9 @@ data/
 *.zip
 *.tar.gz
 
-# Ignore internal docs, project overviews, briefs, and submitted documents
+# Ignore internal docs, project overviews, briefs, and research report
 docs/
-report/*.pdf
-report/*.aux
-report/*.log
-report/*.out
-report/*.toc
-report/*.bbl
-report/*.blg
-report/*.synctex.gz
-report/*.fdb_latexmk
-report/*.fls
+report/
 
 # Ignore baseline prediction CSV outputs
 experiments/baseline_predictions/
