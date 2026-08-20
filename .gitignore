@@ -11,10 +11,8 @@ data/
 *.zip
 *.tar.gz
 
-# Ignore submitted/graded PDFs, Word docs, and private course briefs
-docs/*.pdf
-docs/*.docx
-docs/expose/*.pdf
+# Ignore internal docs, project overviews, briefs, and submitted documents
+docs/
 report/*.pdf
 report/*.aux
 report/*.log
