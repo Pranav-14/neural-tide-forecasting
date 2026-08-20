@@ -71,6 +71,7 @@ neural-tide-forecasting/
 │   ├── eval_local_baselines.py # Benchmark baseline evaluation
 │   ├── run_batadal.py        # BATADAL cross-domain experiment runner
 │   ├── run_ablations.py      # Systematic ablations & LSTM neural baseline
+│   ├── backtest_recursive.py # Recursive 336-step benchmark table
 │   ├── plot_figures.py       # Publication figure generation
 │   └── package_submission.py # Archive packaging & verification script
 │
@@ -136,11 +137,23 @@ Evaluate covariate importance, normalization impact, lookback sensitivity, and t
 python experiments/run_ablations.py
 ```
 
+### 7. Reproduce the Headline Benchmark Table
+Score the trained checkpoint and every heuristic baseline on the identical held-out 336-hour window
+under the recursive rollout protocol used by the leaderboard:
+```bash
+python experiments/backtest_recursive.py
+```
+
 ---
 
 ## Empirical Benchmark Results
 
 ### 1. Operational Load Benchmark (Covariate-Rich, 96 Series, 336-Hour Horizon)
+
+Local holdout = the last 336 hours of `train.csv`, excluded from training. **Every model below is
+scored under the identical recursive protocol**: the model sees true history once, then rolls its own
+24-step predictions forward 14 times to cover all 336 hours. Reproduce with
+`python experiments/backtest_recursive.py`.
 
 | Model | WAPE (Primary) ↓ | MAE ↓ | RMSE ↓ | sMAPE ↓ | Error Reduction vs Naive |
 |---|---|---|---|---|---|
@@ -148,7 +161,21 @@ python experiments/run_ablations.py
 | **`lag168_repeat`** | 0.4549 | 4.8584 | 6.3610 | 54.43% | +16.5% |
 | **`lag24_repeat`** | 0.4180 | 4.4646 | 5.8853 | 49.50% | +23.3% |
 | **`seasonal_mean`** | 0.3140 | 3.3541 | 4.5432 | 34.70% | +42.4% |
-| **`TiDE + RevIN (Ours)`** | **0.1616** | **1.7264** | **2.9265** | **18.23%** | **+70.3% error reduction** 🔥 |
+| **`TiDE + RevIN (Ours)`** | **0.1702** | **1.8174** | **2.8620** | **18.62%** | **+68.8% error reduction** 🔥 |
+
+#### Official Leaderboard (hidden validation labels)
+
+Scored by the course Hugging Face Space against labels we never see. WAPE is reported in percent there.
+
+| Model | WAPE ↓ | MAE ↓ | RMSE ↓ | sMAPE ↓ |
+|---|---|---|---|---|
+| `naive_last_value` (provided) | 48.098% | 5.2945 | 6.9722 | 52.71% |
+| `seasonal_mean` (provided) | 34.409% | 3.7876 | 5.2060 | 37.43% |
+| **`tide_revin_val` (Ours)** | **20.416%** | **2.2474** | **3.4777** | **23.91%** |
+
+The hidden validation window is a later, unseen period than the local holdout, so absolute errors are
+higher there; the ranking against the baselines is unchanged. Our model reduces naive-baseline error
+by **57.6%** on the official split.
 
 ### 2. BATADAL Water SCADA Benchmark (Covariate-Free, 19 Multi-Target Sensors)
 
@@ -160,15 +187,34 @@ python experiments/run_ablations.py
 | **`seasonal_mean`** | 0.3061 | 5.7178 | 13.4787 | 32.32% | +27.7% |
 | **`TiDE + RevIN (Covariate-Free)`** | **0.2653** | **4.9497** | **12.7168** | **48.64%** | **+37.3% error reduction** 🔥 |
 
-### 3. Systematic Ablation Studies & Neural Baseline (336-Hour Horizon)
+### 3. Systematic Ablation Studies & Neural Baseline
+
+**Protocol note.** Ablations use a reduced budget (3 epochs, training stride 6) so that all five
+variants are trained under identical, affordable conditions, and are scored on direct 24-step windows
+tiled across the 336-hour holdout rather than on a recursive rollout. The numbers are therefore
+internally comparable to each other but **not** comparable to the recursive figures in Section 1.
+Reproduce with `python experiments/run_ablations.py`.
 
 | Configuration | WAPE ↓ | MAE ↓ | RMSE ↓ | sMAPE ↓ | Key Insight |
 |---|---|---|---|---|---|
-| **`TiDE (No Covariates)`** | 0.2775 | 2.9643 | 4.2115 | 30.45% | Covariates provide a **+38.5% error reduction** |
-| **`TiDE (No RevIN)`** | 0.1706 | 1.8218 | 3.0084 | 19.36% | RevIN stabilizes heterogeneous unit series |
-| **`TiDE (Lookback L=72)`** | 0.1839 | 1.9646 | 3.1538 | 20.29% | Full 1-week lookback ($L=168$) is essential for periodicity |
-| **`LSTM Neural Baseline`** | 0.1679 | 1.7928 | 2.9601 | 18.88% | Competitive accuracy, but 30% slower training latency |
-| **`TiDE + RevIN (Full Proposed)`** | **0.1616** | **1.7264** | **2.9265** | **18.23%** | **Best overall accuracy and parallel efficiency** 🔥 |
+| **`TiDE (No Covariates)`** | 0.2775 | 2.9643 | 4.2115 | 30.45% | Largest single effect: covariates cut error by **38.5%** |
+| **`TiDE (Lookback L=72)`** | 0.1839 | 1.9646 | 3.1538 | 20.29% | A 3-day window costs 7.7%; the full weekly cycle matters |
+| **`TiDE (No RevIN)`** | 0.1706 | 1.8218 | 3.0084 | 19.36% | **No measurable effect** at this budget (see note below) |
+| **`LSTM Neural Baseline`** | 0.1679 | 1.7928 | 2.9601 | 18.88% | Competitive — marginally ahead of TiDE here |
+| **`TiDE + RevIN (Full Proposed)`** | 0.1707 | 1.8227 | 3.0129 | 19.06% | Matches No-RevIN; wins on training throughput |
+
+**Honest reading of these results.** Two of our design choices are clearly supported and two are not:
+
+* **Known-future covariates are decisive** (0.2775 → 0.1707) and a **1-week lookback is justified**
+  (0.1839 → 0.1707). These are the load-bearing choices.
+* **RevIN gives no measurable accuracy gain on this benchmark** (0.1706 without vs 0.1707 with — a
+  0.06% difference, well inside run-to-run noise). We retain it because it costs ~0.02% of parameters
+  and is the standard remedy for the cross-unit scale heterogeneity present in this data, but we do
+  not claim an accuracy benefit we did not measure.
+* **The LSTM baseline is not beaten** under this reduced budget (0.1679 vs 0.1707). TiDE's advantage
+  here is throughput, not accuracy: it trains ~30% faster per epoch because it has no sequential
+  recurrence. Establishing an accuracy win would require training both to convergence and scoring
+  both recursively — an experiment we flag as future work rather than assert.
 
 ---
 
