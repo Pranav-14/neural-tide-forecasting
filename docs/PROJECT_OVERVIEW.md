@@ -100,16 +100,16 @@ Review, verify, and merge into main
 
 ### GitHub Issues Roadmap:
 
-| Issue | Title | Status | Linked Branch |
+| Issue | Title | Status | Linked Branch / PR |
 |---|---|---|---|
-| [#1](https://github.com/Pranav-14/neural-tide-forecasting/issues/1) | `feat: Implement sliding-window PyTorch dataset pipeline and covariate imputation` | **In Progress** | `feature/dataset-pipeline` |
-| [#2](https://github.com/Pranav-14/neural-tide-forecasting/issues/2) | `feat: Implement TiDE architecture with Reversible Instance Normalization (RevIN)` | To Do | `feature/tide-model` |
-| [#3](https://github.com/Pranav-14/neural-tide-forecasting/issues/3) | `feat: Build training pipeline with learning rate schedulers and checkpointing` | To Do | `feature/training-pipeline` |
-| [#4](https://github.com/Pranav-14/neural-tide-forecasting/issues/4) | `feat: Build 24-step iterative rolling inference engine and submission CLI` | To Do | `feature/rolling-inference` |
-| [#5](https://github.com/Pranav-14/neural-tide-forecasting/issues/5) | `experiment: Validation leaderboard submission and benchmark verification` | To Do | `feature/leaderboard-validation` |
-| [#6](https://github.com/Pranav-14/neural-tide-forecasting/issues/6) | `feat: BATADAL water distribution SCADA cross-domain pipeline and experiments` | To Do | `feature/batadal-pipeline` |
-| [#7](https://github.com/Pranav-14/neural-tide-forecasting/issues/7) | `experiment: Systematic ablation studies and neural baseline (LSTM)` | To Do | `feature/ablations` |
-| [#8](https://github.com/Pranav-14/neural-tide-forecasting/issues/8) | `docs: Author final research report (4-6 pages LaTeX) and package submission` | To Do | `feature/final-report` |
+| [#1](https://github.com/Pranav-14/neural-tide-forecasting/issues/1) | `feat: Implement sliding-window PyTorch dataset pipeline and covariate imputation` | ✅ **Completed** | [PR #9](https://github.com/Pranav-14/neural-tide-forecasting/pull/9) (Merged) |
+| [#2](https://github.com/Pranav-14/neural-tide-forecasting/issues/2) | `feat: Implement TiDE architecture with Reversible Instance Normalization (RevIN)` | ✅ **Completed** | [PR #9](https://github.com/Pranav-14/neural-tide-forecasting/pull/9) (Merged) |
+| [#3](https://github.com/Pranav-14/neural-tide-forecasting/issues/3) | `feat: Build training pipeline with learning rate schedulers and checkpointing` | 🔄 **In Progress** | `feature/training-and-inference` |
+| [#4](https://github.com/Pranav-14/neural-tide-forecasting/issues/4) | `feat: Build 24-step iterative rolling inference engine and submission CLI` | 🔄 **In Progress** | `feature/training-and-inference` |
+| [#5](https://github.com/Pranav-14/neural-tide-forecasting/issues/5) | `experiment: Validation leaderboard submission and benchmark verification` | 📋 To Do | `feature/leaderboard-validation` |
+| [#6](https://github.com/Pranav-14/neural-tide-forecasting/issues/6) | `feat: BATADAL water distribution SCADA cross-domain pipeline and experiments` | 📋 To Do | `feature/batadal-pipeline` |
+| [#7](https://github.com/Pranav-14/neural-tide-forecasting/issues/7) | `experiment: Systematic ablation studies and neural baseline (LSTM)` | 📋 To Do | `feature/ablations` |
+| [#8](https://github.com/Pranav-14/neural-tide-forecasting/issues/8) | `docs: Author final research report (4-6 pages LaTeX) and package submission` | 📋 To Do | `feature/final-report` |
 
 ---
 
