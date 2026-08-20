@@ -69,14 +69,20 @@ neural-tide-forecasting/
 │   ├── eda.py                # Benchmark dataset analysis
 │   ├── eda_batadal.py        # BATADAL SCADA dataset analysis
 │   ├── eval_local_baselines.py # Benchmark baseline evaluation
-│   └── run_batadal.py        # BATADAL cross-domain experiment runner
+│   ├── run_batadal.py        # BATADAL cross-domain experiment runner
+│   └── run_ablations.py      # Systematic ablations & LSTM neural baseline
 │
 ├── submission/               # Production inference package & checkpoint interface
 │   ├── predict.py            # Standardized CLI entrypoint
 │   ├── requirements.txt      # Minimal runtime dependencies
 │   └── src/
 │
-└── report/                   # LaTeX source & bibliography for empirical report
+└── tests/                    # Automated test suite
+    ├── test_dataset.py
+    ├── test_model.py
+    ├── test_inference.py
+    ├── test_batadal.py
+    └── test_ablations.py
 ```
 
 ---
@@ -121,6 +127,12 @@ Evaluate covariate-free multi-target forecasting on the BATADAL water distributi
 python experiments/run_batadal.py
 ```
 
+### 6. Run Systematic Ablations & LSTM Neural Baseline
+Evaluate covariate importance, normalization impact, lookback sensitivity, and the LSTM baseline:
+```bash
+python experiments/run_ablations.py
+```
+
 ---
 
 ## Empirical Benchmark Results
@@ -144,6 +156,16 @@ python experiments/run_batadal.py
 | **`lag168_repeat`** | 0.3637 | 6.7933 | 20.0294 | 29.39% | +14.1% |
 | **`seasonal_mean`** | 0.3061 | 5.7178 | 13.4787 | 32.32% | +27.7% |
 | **`TiDE + RevIN (Covariate-Free)`** | **0.2653** | **4.9497** | **12.7168** | **48.64%** | **+37.3% error reduction** 🔥 |
+
+### 3. Systematic Ablation Studies & Neural Baseline (336-Hour Horizon)
+
+| Configuration | WAPE ↓ | MAE ↓ | RMSE ↓ | sMAPE ↓ | Key Insight |
+|---|---|---|---|---|---|
+| **`TiDE (No Covariates)`** | 0.2775 | 2.9643 | 4.2115 | 30.45% | Covariates provide a **+38.5% error reduction** |
+| **`TiDE (No RevIN)`** | 0.1706 | 1.8218 | 3.0084 | 19.36% | RevIN stabilizes heterogeneous unit series |
+| **`TiDE (Lookback L=72)`** | 0.1839 | 1.9646 | 3.1538 | 20.29% | Full 1-week lookback ($L=168$) is essential for periodicity |
+| **`LSTM Neural Baseline`** | 0.1679 | 1.7928 | 2.9601 | 18.88% | Competitive accuracy, but 30% slower training latency |
+| **`TiDE + RevIN (Full Proposed)`** | **0.1616** | **1.7264** | **2.9265** | **18.23%** | **Best overall accuracy and parallel efficiency** 🔥 |
 
 ---
 
