@@ -70,7 +70,9 @@ neural-tide-forecasting/
 │   ├── eda_batadal.py        # BATADAL SCADA dataset analysis
 │   ├── eval_local_baselines.py # Benchmark baseline evaluation
 │   ├── run_batadal.py        # BATADAL cross-domain experiment runner
-│   └── run_ablations.py      # Systematic ablations & LSTM neural baseline
+│   ├── run_ablations.py      # Systematic ablations & LSTM neural baseline
+│   ├── plot_figures.py       # Publication figure generation
+│   └── package_submission.py # Archive packaging & verification script
 │
 ├── submission/               # Production inference package & checkpoint interface
 │   ├── predict.py            # Standardized CLI entrypoint
@@ -82,7 +84,8 @@ neural-tide-forecasting/
     ├── test_model.py
     ├── test_inference.py
     ├── test_batadal.py
-    └── test_ablations.py
+    ├── test_ablations.py
+    └── test_submission_package.py
 ```
 
 ---
