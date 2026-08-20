@@ -175,12 +175,12 @@ def predict_rolling(
                 x_past_cov = torch.from_numpy(np.array(past_cov_buffer[-lookback_len:], dtype=np.float32)).unsqueeze(0).to(device)
 
                 if curr_horizon == horizon:
-                    x_future_cov = torch.tensor([future_cov_matrix[start_step:end_step]], dtype=torch.float32, device=device)
+                    x_future_cov = torch.from_numpy(np.array(future_cov_matrix[start_step:end_step], dtype=np.float32)).unsqueeze(0).to(device)
                 else:
                     pad_len = horizon - curr_horizon
                     cov_slice = future_cov_matrix[start_step:end_step]
                     padded_cov = np.pad(cov_slice, ((0, pad_len), (0, 0)), mode="edge")
-                    x_future_cov = torch.tensor([padded_cov], dtype=torch.float32, device=device)
+                    x_future_cov = torch.from_numpy(np.array(padded_cov, dtype=np.float32)).unsqueeze(0).to(device)
 
                 y_pred_tensor = model(x_past_target, x_past_cov, x_future_cov)
                 y_pred_np = y_pred_tensor.cpu().numpy()[0][:curr_horizon]
