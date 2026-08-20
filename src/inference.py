@@ -75,14 +75,22 @@ def run_iterative_rolling_forecast(
     # 3. Process each series
     predictions_list: List[pd.DataFrame] = []
 
-    unique_series = forecast_index_df["series_id"].unique()
+    fidx = forecast_index_df.copy()
+    fidx["_ts"] = pd.to_datetime(fidx["timestamp"])
+    unique_series = fidx["series_id"].unique()
 
     with torch.no_grad():
         for series_id in unique_series:
             s_train = train_proc[train_proc["series_id"] == series_id]
-            s_future = future_proc[future_proc["series_id"] == series_id]
-            s_index = forecast_index_df[forecast_index_df["series_id"] == series_id].copy()
+            # Enforce chronological order rather than trusting the index file's row order.
+            s_index = fidx[fidx["series_id"] == series_id].sort_values("_ts").copy()
+            s_future_all = future_proc[future_proc["series_id"] == series_id]
+            s_future = s_future_all[s_future_all["timestamp"].isin(set(s_index["_ts"]))].sort_values("timestamp")
 
+            if len(s_future) != len(s_index):
+                raise ValueError(
+                    f"Series {series_id}: {len(s_index)} forecast rows but {len(s_future)} matching covariate rows."
+                )
             if len(s_train) < lookback_len:
                 raise ValueError(f"Series {series_id} has {len(s_train)} history rows, requires at least {lookback_len}.")
 
@@ -132,5 +140,9 @@ def run_iterative_rolling_forecast(
             s_index["prediction"] = series_preds[: len(s_index)]
             predictions_list.append(s_index[["series_id", "timestamp", "prediction"]])
 
+    # Restore the original row order of the forecast index file.
     predictions_df = pd.concat(predictions_list, ignore_index=True)
-    return predictions_df
+    key = forecast_index_df[["series_id", "timestamp"]].copy()
+    key["_row"] = np.arange(len(key))
+    predictions_df = predictions_df.merge(key, on=["series_id", "timestamp"], how="right").sort_values("_row")
+    return predictions_df[["series_id", "timestamp", "prediction"]].reset_index(drop=True)

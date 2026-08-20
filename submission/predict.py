@@ -59,6 +59,12 @@ def preprocess_dataframe(
         df_out["timestamp"] = pd.to_datetime(df_out["timestamp"])
         df_out = df_out.sort_values(["series_id", "timestamp"]).reset_index(drop=True)
 
+    # Recreate any covariate column missing from the input schema so that downstream
+    # feature-matrix lookups cannot raise KeyError on an unexpected private test layout.
+    for col in ALL_COVARIATE_COLUMNS:
+        if col not in df_out.columns:
+            df_out[col] = np.float32(column_means.get(col, 0.0))
+
     grouped = df_out.groupby("series_id", group_keys=False)
     impute_cols = FORECAST_COVARIATES + ["shock_risk"]
 
@@ -94,32 +100,67 @@ def load_inputs(input_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFra
         input_dir / "validation_input.csv",
     ]
     future_input = None
+    future_input_path = None
     for p in input_candidates:
         if p.exists():
             future_input = pd.read_csv(p)
+            future_input_path = p
             break
     if future_input is None:
         raise FileNotFoundError(f"Missing test_input.csv or validation_input.csv in {input_dir}.")
 
-    # 3. Train history (target history)
-    train_candidates = [
+    # 3. Target history. Named candidates first, then any CSV in the input tree that
+    #    actually carries a target column, so an unexpected file layout cannot zero the run.
+    named_candidates = [
         input_dir / "train.csv",
         input_dir / "history.csv",
+        input_dir / "train_input.csv",
         input_dir.parent / "benchmark" / "train.csv",
     ]
-    train_df = None
-    for p in train_candidates:
+    history_frames: List[pd.DataFrame] = []
+    for p in named_candidates:
         if p.exists():
-            train_df = pd.read_csv(p)
-            break
-    if train_df is None:
-        # If running in isolated container without train.csv, check if history is included in input_dir
-        for p in input_dir.glob("*.csv"):
-            if "train" in p.name.lower():
-                train_df = pd.read_csv(p)
+            df = pd.read_csv(p)
+            if "target" in df.columns and "series_id" in df.columns:
+                history_frames.append(df)
                 break
-    if train_df is None:
-        raise FileNotFoundError(f"Missing historical train data in {input_dir}.")
+
+    if not history_frames:
+        # Fall back to scanning the input tree for any file holding observed targets.
+        for p in sorted(input_dir.rglob("*.csv")):
+            if p.name in {"forecast_index_test.csv", "forecast_index_validation.csv"}:
+                continue
+            if future_input_path is not None and p.resolve() == future_input_path.resolve():
+                continue  # handled separately below
+            try:
+                head = pd.read_csv(p, nrows=1)
+            except Exception:
+                continue
+            if "target" in head.columns and "series_id" in head.columns:
+                df = pd.read_csv(p).dropna(subset=["target"])
+                if len(df) > 0:
+                    history_frames.append(df)
+
+    # The future-input file itself may embed observed history rows alongside the
+    # rows to forecast; harvest any labelled rows from it as additional history.
+    if "target" in future_input.columns:
+        labelled = future_input[future_input["target"].notna()]
+        if len(labelled) > 0:
+            history_frames.append(labelled.copy())
+        future_input = future_input.drop(columns=["target"])
+        history_frames = [f.dropna(subset=["target"]) for f in history_frames]
+        history_frames = [f for f in history_frames if len(f) > 0]
+
+    if not history_frames:
+        raise FileNotFoundError(
+            f"Missing historical target data in {input_dir}. "
+            f"Found CSV files: {[p.name for p in input_dir.rglob('*.csv')]}"
+        )
+
+    train_df = max(history_frames, key=len) if len(history_frames) == 1 else (
+        pd.concat(history_frames, ignore_index=True)
+        .drop_duplicates(subset=["series_id", "timestamp"], keep="last")
+    )
 
     return forecast_index, future_input, train_df
 
@@ -149,14 +190,35 @@ def predict_rolling(
     train_proc = preprocess_dataframe(train_df, column_means)
     future_proc = preprocess_dataframe(future_input_df, column_means)
 
+    # Parse the forecast-index timestamps for ordering/joining while preserving the
+    # original string column verbatim for the output file.
+    fidx = forecast_index_df.copy()
+    fidx["_ts"] = pd.to_datetime(fidx["timestamp"])
+
     predictions_list: List[pd.DataFrame] = []
-    unique_series = forecast_index_df["series_id"].unique()
+    unique_series = fidx["series_id"].unique()
 
     with torch.no_grad():
         for series_id in unique_series:
             s_train = train_proc[train_proc["series_id"] == series_id]
-            s_future = future_proc[future_proc["series_id"] == series_id]
-            s_index = forecast_index_df[forecast_index_df["series_id"] == series_id].copy()
+            # Chronological order is what makes the recursive rollout meaningful; never
+            # rely on the row order the index file happens to ship with.
+            s_index = fidx[fidx["series_id"] == series_id].sort_values("_ts").copy()
+
+            # Restrict the covariate frame to exactly the timestamps being forecast, so
+            # embedded history rows or extra rows cannot shift the rollout off-target.
+            s_future_all = future_proc[future_proc["series_id"] == series_id]
+            s_future = s_future_all[s_future_all["timestamp"].isin(set(s_index["_ts"]))].sort_values("timestamp")
+
+            if len(s_future) != len(s_index):
+                raise ValueError(
+                    f"Series {series_id}: {len(s_index)} forecast rows but {len(s_future)} "
+                    f"matching covariate rows; cannot align the rollout."
+                )
+            if len(s_train) < lookback_len:
+                raise ValueError(
+                    f"Series {series_id} has {len(s_train)} history rows, requires at least {lookback_len}."
+                )
 
             target_buffer = list(s_train["target"].iloc[-lookback_len:].to_numpy(dtype=np.float32))
             past_cov_buffer = list(s_train[past_cov_cols].iloc[-lookback_len:].to_numpy(dtype=np.float32))
@@ -194,7 +256,14 @@ def predict_rolling(
             s_index["prediction"] = series_preds[: len(s_index)]
             predictions_list.append(s_index[["series_id", "timestamp", "prediction"]])
 
-    return pd.concat(predictions_list, ignore_index=True)
+    # Restore the original row order of the forecast index file.
+    out = pd.concat(predictions_list, ignore_index=True)
+    key = forecast_index_df[["series_id", "timestamp"]].copy()
+    key["_row"] = np.arange(len(key))
+    out = out.merge(key, on=["series_id", "timestamp"], how="right").sort_values("_row")
+    if out["prediction"].isna().any():
+        raise ValueError("Failed to produce a prediction for every forecast-index row.")
+    return out[["series_id", "timestamp", "prediction"]].reset_index(drop=True)
 
 
 def main() -> None:
